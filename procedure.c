@@ -16,6 +16,9 @@ void init_monitor(MonitorIO * m) {
     m->num_liberi = DIM;
     m->num_occupati = 0;
 
+    for(int i=0; i<DIM; i++){
+        m->stato[i] = LIBERO;
+    }
 
 }
 
@@ -48,13 +51,29 @@ void produzione(MonitorIO * m, char c) {
     /* TBD: Ricercare un elemento "i" nello stato LIBERO,
             in base allo schema con vettore di stato       */
 
+    for(int k=0; k<DIM; k++) {
+        if(m->stato[k] == LIBERO) {
+            i = k;
+            // Il ciclo continua ma 'i' ha memorizzato un indice valido
+        }
+    }
 
+    // Prenoto lo slot mettendo IN_USO e decrementando i liberi
+    m->stato[i] = IN_USO;
+    m->num_liberi--;
+
+    pthread_mutex_unlock(&m->mutex);
 
     printf("PRODUZIONE: inizio produzione vettore[%d]\n", i);
     sleep(1 + (rand() % 3));
     m->vettore[i] = c;
     printf("PRODUZIONE: vettore[%d] <- '%c'\n", i, c);
 
+    pthread_mutex_lock(&m->mutex); 
+
+    // Rilascio lo slot (LIBERO)
+    m->stato[i] = LIBERO;
+    m->num_liberi++;
 
 
     /* TBD: Riattivare un thread consumatore sospeso */
@@ -85,6 +104,17 @@ char consumazione(MonitorIO * m) {
     /* TBD: Ricercare un elemento "i" nello stato OCCUPATO,
             in base allo schema con vettore di stato       */
 
+    for(int k=0; k<DIM; k++) {
+        if(m->stato[k] == OCCUPATO) {
+            i = k;
+            break;
+        }
+    }
+
+    m->stato[i] = IN_USO;
+    m->num_occupati--;
+
+    pthread_mutex_unlock(&m->mutex);
 
 
     printf("CONSUMAZIONE: inizio consumazione vettore[%d]\n", i);
@@ -92,9 +122,13 @@ char consumazione(MonitorIO * m) {
     char c = m->vettore[i];
     printf("CONSUMAZIONE: vettore[%d] -> '%c'\n", i, c);
 
-
-
     /* TBD: Riattivare un thread produttore sospeso */
+
+    pthread_mutex_lock(&m->mutex); // Riprendo mutex
+
+    // Libero lo slot
+    m->stato[i] = LIBERO;
+    m->num_liberi++;
 
     pthread_cond_signal(&m->prod_ok);
     pthread_mutex_unlock(&m->mutex);

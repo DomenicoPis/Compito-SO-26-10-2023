@@ -62,6 +62,7 @@ int main() {
     /* TBD: Disattivare e deallocare l'oggetto monitor */
 
     end_monitor(m);    
+    free(m);
 
     return 0;
 }
